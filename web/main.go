@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -34,7 +36,8 @@ type PanelConfig struct {
 		Password string `toml:"password"`
 	} `toml:"auth"`
 	Server struct {
-		Port int `toml:"port"`
+		Port          int    `toml:"port"`
+		SessionSecret string `toml:"session_secret"`
 	} `toml:"server"`
 	HTTPS struct {
 		Enabled  bool   `toml:"enabled"`
@@ -152,7 +155,15 @@ func main() {
 
 	r := gin.Default()
 
-	store := cookie.NewStore([]byte("secret"))
+	sessionSecret := panelConfig.Server.SessionSecret
+	if sessionSecret == "" {
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err != nil {
+			log.Fatalf("生成 session secret 失败: %v", err)
+		}
+		sessionSecret = hex.EncodeToString(b)
+	}
+	store := cookie.NewStore([]byte(sessionSecret))
 	r.Use(sessions.Sessions("realm_session", store))
 	r.Use(HTTPSRedirect())
 
@@ -248,7 +259,19 @@ func main() {
 				return
 			}
 
+			if input.Listen == "" || input.Remote == "" {
+				c.JSON(400, gin.H{"error": "listen 和 remote 不能为空"})
+				return
+			}
+
 			mu.Lock()
+			for _, rule := range config.Endpoints {
+				if rule.Listen == input.Listen {
+					mu.Unlock()
+					c.JSON(409, gin.H{"error": "端口已存在"})
+					return
+				}
+			}
 			config.Endpoints = append(config.Endpoints, input)
 			err := saveConfigLocked()
 			mu.Unlock()
@@ -263,6 +286,11 @@ func main() {
 
 		authorized.DELETE("/delete_rule", func(c *gin.Context) {
 			listen := c.Query("listen")
+
+			if listen == "" {
+				c.JSON(400, gin.H{"error": "listen 参数不能为空"})
+				return
+			}
 
 			mu.Lock()
 			found := false

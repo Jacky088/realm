@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # ==========================================
-# Realm 一键转发脚本 (防死循环版 v3.1.2)
+# Realm 一键转发脚本 v3.2.1
 # 更新日志:
 # 1. 新增输入错误计数器
 # 2. 连续输错 2 次自动返回主菜单
 # ==========================================
 
 # --- 基础配置 ---
-sh_ver="3.2.0"
-panel_ver="v2.2"
+sh_ver="3.2.1"
+panel_ver="v3.2.1"
 
 # 颜色定义
 RED="\033[31m"
@@ -86,7 +86,7 @@ check_port_available() {
 check_rule_exists() {
     local port=$1
     if [ -f "$CONFIG_FILE" ]; then
-        if grep -q "listen = \"[::]:${port}\"" "$CONFIG_FILE"; then
+        if grep -qE "listen = \"(\\[::]:${port}|0\\.0\\.0\\.0:${port})\"" "$CONFIG_FILE"; then
             echo -e "${RED}错误: 端口 ${port} 的规则已存在。${PLAIN}"
             return 0
         fi
@@ -143,8 +143,8 @@ install_realm() {
         *) echo -e "${RED}不支持架构: $arch${PLAIN}"; return 1 ;;
     esac
 
-    wget -O "realm.tar.gz" "https://github.com/zhboner/realm/releases/download/${version}/${filename}" || { echo -e "${RED}下载失败${PLAIN}"; return 1; }
-    tar -xvf realm.tar.gz -C "$REALM_DIR" && rm -f realm.tar.gz
+    wget -O "/tmp/realm.tar.gz" "https://github.com/zhboner/realm/releases/download/${version}/${filename}" || { echo -e "${RED}下载失败${PLAIN}"; return 1; }
+    tar -xvf /tmp/realm.tar.gz -C "$REALM_DIR" && rm -f /tmp/realm.tar.gz
     chmod +x "$REALM_BIN"
 
     cat <<EOF > "$SERVICE_FILE"
@@ -274,6 +274,9 @@ delete_forward() {
     echo "==============="
     read -p "删除序号(0取消): " c
     [[ "$c" == "0" || -z "$c" ]] && return
+    if ! [[ "$c" =~ ^[0-9]+$ ]] || [ "$c" -lt 1 ] || [ "$c" -gt "${#listens[@]}" ]; then
+        echo -e "${RED}无效序号${PLAIN}"; return
+    fi
     
     cp "$CONFIG_FILE" "${CONFIG_FILE}.bak"; write_config_header
     local del_idx=$((c-1))

@@ -83,8 +83,10 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = '';
 
         allRules.forEach((rule, index) => {
-            const listen = rule.listen;
-            const remote = rule.remote;
+            const listen = rule.listen || '';
+            const remote = rule.remote || '';
+
+            if (!listen || !remote) return;
 
             const localPort = listen.substring(listen.lastIndexOf(':') + 1);
             const lastColonIndex = remote.lastIndexOf(':');
