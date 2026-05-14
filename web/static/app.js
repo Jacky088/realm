@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function updateServiceStatus() {
         try {
-            const response = await fetch('/check_status');
+            const response = await fetch(`/check_status?_=${Date.now()}`);
             if (!response.ok) {
                 throw new Error('检查状态失败：' + response.statusText);
             }
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchForwardingRules(targetPage = currentPage) {
         try {
-            const response = await fetch(`/get_rules?page=${targetPage}&size=${pageSize}`, {
+            const response = await fetch(`/get_rules?page=${targetPage}&size=${pageSize}&_=${Date.now()}`, {
                 method: 'GET',
                 headers: {
                     'Cache-Control': 'no-cache',

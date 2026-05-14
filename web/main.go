@@ -250,6 +250,9 @@ func main() {
 		})
 
 		authorized.GET("/get_rules", func(c *gin.Context) {
+				c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+				c.Header("Pragma", "no-cache")
+				c.Header("Expires", "0")
 			pageStr := c.Query("page")
 			sizeStr := c.Query("size")
 			page, err := strconv.Atoi(pageStr)
@@ -383,6 +386,9 @@ func main() {
 		})
 
 		authorized.GET("/check_status", func(c *gin.Context) {
+				c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+				c.Header("Pragma", "no-cache")
+				c.Header("Expires", "0")
 			cmd := exec.Command("systemctl", "is-active", "--quiet", "realm")
 			err := cmd.Run()
 

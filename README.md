@@ -6,7 +6,7 @@
 
 ```
 ################################################
-#        Realm 一键转发脚本 (v3.1.2)         #
+#        Realm 一键转发脚本 (v3.2.4)         #
 ################################################
  Realm 状态: 运行中
  面板 状态: 已安装但未启动
@@ -32,11 +32,11 @@
 ## 一键脚本：
 国内或v6 only可用（推荐）
 ```
-curl -L https://host.wxgwxha.eu.org/https://github.com/wcwq98/realm/releases/download/v3.1.2/realm.sh -o realm.sh && chmod +x realm.sh &&  ./realm.sh
+curl -L https://host.wxgwxha.eu.org/https://github.com/wcwq98/realm/releases/download/v3.2.4/realm.sh -o realm.sh && chmod +x realm.sh &&  ./realm.sh
 ```
 或
 ```
-curl -L https://github.com/wcwq98/realm/releases/download/v3.1.21/realm.sh -o realm.sh && chmod +x realm.sh &&  ./realm.sh
+curl -L https://github.com/wcwq98/realm/releases/download/v3.2.4/realm.sh -o realm.sh && chmod +x realm.sh &&  ./realm.sh
 ```
 或
 ```
