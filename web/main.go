@@ -267,6 +267,12 @@ func main() {
 			mu.Lock()
 			defer mu.Unlock()
 
+			// 每次请求重新从磁盘加载，确保手动修改 config.toml 后能立即反映
+			if err := LoadConfig(); err != nil {
+				c.JSON(500, gin.H{"error": "读取配置文件失败"})
+				return
+			}
+
 			totalCount := len(config.Endpoints)
 			start := (page - 1) * size
 			end := start + size
