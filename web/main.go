@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -110,6 +111,38 @@ func SaveConfig() error {
 	mu.Lock()
 	defer mu.Unlock()
 	return saveConfigLocked()
+}
+
+func validateForwardingAddress(value string) error {
+	host, port, err := net.SplitHostPort(value)
+	if err != nil {
+		return err
+	}
+
+	if host == "" {
+		return fmt.Errorf("host 不能为空")
+	}
+
+	portNumber, err := strconv.Atoi(port)
+	if err != nil {
+		return err
+	}
+	if portNumber < 1 || portNumber > 65535 {
+		return fmt.Errorf("port 超出范围")
+	}
+
+	return nil
+}
+
+func validateForwardingRule(rule ForwardingRule) error {
+	if err := validateForwardingAddress(rule.Listen); err != nil {
+		return fmt.Errorf("listen 格式无效")
+	}
+	if err := validateForwardingAddress(rule.Remote); err != nil {
+		return fmt.Errorf("remote 格式无效")
+	}
+
+	return nil
 }
 
 func AuthRequired() gin.HandlerFunc {
@@ -259,8 +292,8 @@ func main() {
 				return
 			}
 
-			if input.Listen == "" || input.Remote == "" {
-				c.JSON(400, gin.H{"error": "listen 和 remote 不能为空"})
+			if err := validateForwardingRule(input); err != nil {
+				c.JSON(400, gin.H{"error": err.Error()})
 				return
 			}
 

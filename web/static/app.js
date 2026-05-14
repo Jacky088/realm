@@ -78,6 +78,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function splitHostPort(value) {
+        if (!value) {
+            return null;
+        }
+
+        if (value.startsWith('[')) {
+            const closingBracketIndex = value.indexOf(']');
+            if (closingBracketIndex === -1 || value[closingBracketIndex + 1] !== ':') {
+                return null;
+            }
+
+            const host = value.slice(1, closingBracketIndex);
+            const port = value.slice(closingBracketIndex + 2);
+            if (!host || !port) {
+                return null;
+            }
+
+            return { host, port };
+        }
+
+        const colonIndex = value.lastIndexOf(':');
+        if (colonIndex <= 0 || colonIndex === value.length - 1) {
+            return null;
+        }
+
+        if (value.includes(':', colonIndex + 1) || value.includes(':') && value.indexOf(':') !== colonIndex) {
+            return null;
+        }
+
+        return {
+            host: value.slice(0, colonIndex),
+            port: value.slice(colonIndex + 1)
+        };
+    }
+
     function renderForwardingRules() {
         const tbody = document.querySelector('#forwardingTable tbody');
         tbody.innerHTML = '';
@@ -88,10 +123,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!listen || !remote) return;
 
-            const localPort = listen.substring(listen.lastIndexOf(':') + 1);
-            const lastColonIndex = remote.lastIndexOf(':');
-            const remoteIP = remote.substring(0, lastColonIndex);
-            const remotePort = remote.substring(lastColonIndex + 1);
+            const listenParts = splitHostPort(listen);
+            const remoteParts = splitHostPort(remote);
+            const localPort = listenParts?.port || listen;
+            const remoteIP = remoteParts?.host || remote;
+            const remotePort = remoteParts?.port || '-';
 
             const row = document.createElement('tr');
             row.innerHTML = `
