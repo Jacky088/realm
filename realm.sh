@@ -8,8 +8,8 @@
 # ==========================================
 
 # --- 基础配置 ---
-sh_ver="3.1.2"
-panel_ver="v2.1"
+sh_ver="3.2.0"
+panel_ver="v2.2"
 
 # 颜色定义
 RED="\033[31m"
@@ -64,7 +64,7 @@ validate_ip() {
         echo -e "${RED}错误: 地址不能为空。${PLAIN}"
         return 1
     fi
-    if [[ "$ip" =~ ^[a-zA-Z0-9\.\:\-]+$ ]]; then
+    if [[ "$ip" =~ ^[a-zA-Z0-9\.\:\-\[\]]+$ ]]; then
         return 0
     else
         echo -e "${RED}错误: 无效的 IP 或域名格式。${PLAIN}"
@@ -75,7 +75,7 @@ validate_ip() {
 check_port_available() {
     local port=$1
     if command -v ss >/dev/null; then
-        if ss -tulpn | grep -q ":${port} " | grep -v "realm"; then
+        if ss -tulpn | grep ":${port} " | grep -qv "realm"; then
             echo -e "${RED}错误: 本机端口 ${port} 已被其他程序占用。${PLAIN}"
             return 1
         fi
@@ -335,9 +335,38 @@ install_panel() {
 
     mkdir -p "$PANEL_DIR"
     local url="https://github.com/wcwq98/realm/releases/download/${panel_ver}/${p_file}"
-    if wget -O "$p_file" "$url"; then
-        unzip -o "$p_file" -d "$PANEL_DIR" && chmod +x "$PANEL_BIN" && rm -f "$p_file"
-        cat <<EOF > /etc/systemd/system/realm-panel.service
+    local tmp_zip="/tmp/${p_file}"
+    local tmp_dir="/tmp/realm_panel_$$"
+
+    if ! wget -O "$tmp_zip" "$url"; then
+        echo -e "${RED}下载失败${PLAIN}"
+        rm -f "$tmp_zip"
+        return 1
+    fi
+
+    mkdir -p "$tmp_dir"
+    unzip -o "$tmp_zip" -d "$tmp_dir"
+    rm -f "$tmp_zip"
+
+    # 无论 zip 内部目录结构如何，都能找到 realm_web 二进制
+    local found_bin
+    found_bin=$(find "$tmp_dir" -name "realm_web" -type f 2>/dev/null | head -1)
+    if [ -z "$found_bin" ]; then
+        # 兜底：找第一个非文本可执行文件
+        found_bin=$(find "$tmp_dir" -maxdepth 3 -type f ! -name "*.txt" ! -name "*.md" 2>/dev/null | head -1)
+    fi
+
+    if [ -z "$found_bin" ]; then
+        echo -e "${RED}解压后未找到可执行文件，请手动安装${PLAIN}"
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    cp "$found_bin" "$PANEL_BIN"
+    chmod +x "$PANEL_BIN"
+    rm -rf "$tmp_dir"
+
+    cat <<EOF > /etc/systemd/system/realm-panel.service
 [Unit]
 Description=Realm Web Panel
 After=network.target
@@ -352,11 +381,8 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
-        systemctl daemon-reload; systemctl enable realm-panel; systemctl start realm-panel
-        echo -e "${GREEN}面板安装成功!${PLAIN}"
-    else
-        echo -e "${RED}下载失败${PLAIN}"
-    fi
+    systemctl daemon-reload; systemctl enable realm-panel; systemctl start realm-panel
+    echo -e "${GREEN}面板安装成功!${PLAIN}"
 }
 
 uninstall_panel() {

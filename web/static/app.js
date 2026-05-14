@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const listen = rule.listen;
             const remote = rule.remote;
 
-            const localPort = listen.split(':')[1];
+            const localPort = listen.substring(listen.lastIndexOf(':') + 1);
             const lastColonIndex = remote.lastIndexOf(':');
             const remoteIP = remote.substring(0, lastColonIndex);
             const remotePort = remote.substring(lastColonIndex + 1);
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const usedPorts = new Set(allRules.map(r => r.listen.split(':')[1]));
+            const usedPorts = new Set(allRules.map(r => r.listen.substring(r.listen.lastIndexOf(':') + 1)));
             if (usedPorts.has(localPort)) {
                 outputDiv.textContent = `端口 ${localPort} 已被占用`;
                 return;
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    listen: `0.0.0.0:${localPort}`,
+                    listen: `[::]:${localPort}`,
                     remote: `${remoteIP}:${remotePort}`
                 })
             });
@@ -219,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const usedPorts = new Set(allRules.map(r => r.listen.split(':')[1]));
+        const usedPorts = new Set(allRules.map(r => r.listen.substring(r.listen.lastIndexOf(':') + 1)));
         const failedRules = [];
         let hasSuccess = false;
 
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        listen: `0.0.0.0:${localPort}`,
+                        listen: `[::]:${localPort}`,
                         remote: remoteAddress
                     })
                 });

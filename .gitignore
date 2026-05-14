@@ -1,0 +1,11 @@
+# Binaries
+web/realm_web
+
+# Certificates
+certificate/
+
+# AI context docs
+CLAUDE.md
+web/CLAUDE.md
+.claude/
+.playwright-mcp

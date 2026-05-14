@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -41,17 +41,21 @@ type PanelConfig struct {
 		CertFile string `toml:"cert_file"`
 		KeyFile  string `toml:"key_file"`
 	} `toml:"https"`
+	Realm struct {
+		ConfigPath string `toml:"config_path"`
+	} `toml:"realm"`
 }
 
 var (
-	mu          sync.Mutex
-	config      Config
-	panelConfig PanelConfig
-	httpsWarningShown = false
+	mu               sync.Mutex
+	config           Config
+	panelConfig      PanelConfig
+	httpsWarningOnce sync.Once
+	realmConfigPath  = "/root/.realm/config.toml"
 )
 
 func LoadConfig() error {
-	data, err := ioutil.ReadFile("/root/.realm/config.toml")
+	data, err := os.ReadFile(realmConfigPath)
 	if err != nil {
 		return err
 	}
@@ -64,7 +68,7 @@ func LoadConfig() error {
 }
 
 func LoadPanelConfig() error {
-	data, err := ioutil.ReadFile("./config.toml")
+	data, err := os.ReadFile("./config.toml")
 	if err != nil {
 		return err
 	}
@@ -76,19 +80,15 @@ func LoadPanelConfig() error {
 	return nil
 }
 
-func SaveConfig() error {
-	mu.Lock()
-	defer mu.Unlock()
-
+// saveConfigLocked writes config to disk. Caller must hold mu.
+func saveConfigLocked() error {
 	var buf bytes.Buffer
 	encoder := toml.NewEncoder(&buf)
 
-	// 编码 network 部分
 	if err := encoder.Encode(map[string]interface{}{"network": config.Network}); err != nil {
 		return err
 	}
 
-	// 只有在有规则时才添加 endpoints 部分
 	if len(config.Endpoints) > 0 {
 		buf.WriteString("\n")
 		for _, endpoint := range config.Endpoints {
@@ -100,8 +100,13 @@ func SaveConfig() error {
 		}
 	}
 
-	// 写入文件
-	return ioutil.WriteFile("/root/.realm/config.toml", buf.Bytes(), 0644)
+	return os.WriteFile(realmConfigPath, buf.Bytes(), 0644)
+}
+
+func SaveConfig() error {
+	mu.Lock()
+	defer mu.Unlock()
+	return saveConfigLocked()
 }
 
 func AuthRequired() gin.HandlerFunc {
@@ -133,12 +138,16 @@ func HTTPSRedirect() gin.HandlerFunc {
 }
 
 func main() {
-	if err := LoadConfig(); err != nil {
-		log.Fatalf("无法加载 realm 配置: %v", err)
-	}
-
 	if err := LoadPanelConfig(); err != nil {
 		log.Fatalf("无法加载面板配置: %v", err)
+	}
+
+	if panelConfig.Realm.ConfigPath != "" {
+		realmConfigPath = panelConfig.Realm.ConfigPath
+	}
+
+	if err := LoadConfig(); err != nil {
+		log.Fatalf("无法加载 realm 配置: %v", err)
 	}
 
 	r := gin.Default()
@@ -188,9 +197,10 @@ func main() {
 	authorized.Use(AuthRequired())
 	{
 		authorized.GET("/", func(c *gin.Context) {
-			if !panelConfig.HTTPS.Enabled && !httpsWarningShown {
-				c.Header("X-HTTPS-Warning", "当前未启用HTTPS，强烈建议启用HTTPS")
-				httpsWarningShown = true
+			if !panelConfig.HTTPS.Enabled {
+				httpsWarningOnce.Do(func() {
+					c.Header("X-HTTPS-Warning", "当前未启用HTTPS，强烈建议启用HTTPS")
+				})
 			}
 			c.File("./templates/index.html")
 		})
@@ -237,9 +247,10 @@ func main() {
 
 			mu.Lock()
 			config.Endpoints = append(config.Endpoints, input)
+			err := saveConfigLocked()
 			mu.Unlock()
 
-			if err := SaveConfig(); err != nil {
+			if err != nil {
 				c.JSON(500, gin.H{"error": "保存配置失败"})
 				return
 			}
@@ -259,9 +270,13 @@ func main() {
 					break
 				}
 			}
+			var saveErr error
+			if found {
+				saveErr = saveConfigLocked()
+			}
 			mu.Unlock()
 
-			if err := SaveConfig(); err != nil {
+			if saveErr != nil {
 				c.JSON(500, gin.H{"error": "保存转发规则失败"})
 				return
 			}
