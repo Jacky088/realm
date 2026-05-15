@@ -30,11 +30,7 @@
 
 ```
 ## 一键脚本：
-国内或v6 only可用（推荐）
-```
-curl -L https://host.wxgwxha.eu.org/https://github.com/wcwq98/realm/releases/download/v3.2.4/realm.sh -o realm.sh && chmod +x realm.sh &&  ./realm.sh
-```
-或
+
 ```
 curl -L https://github.com/wcwq98/realm/releases/download/v3.2.4/realm.sh -o realm.sh && chmod +x realm.sh &&  ./realm.sh
 ```
